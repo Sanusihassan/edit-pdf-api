@@ -1,32 +1,26 @@
+import os
 import subprocess
-from utils.save_to_tmp import save_to_temp
 
-def pdf_to_html(pdf):
-    # Save the PDF file to a temporary location
-    pdf_path = save_to_temp(pdf)
+def pdf_to_html(pdf_file):
+    # Save the PDF file to the temporary directory
+    temp_pdf_path = os.path.join('/tmp', 'input.pdf')
+    pdf_file.save(temp_pdf_path)
 
-    # Specify the command to run PDFToHTML.jar
-    command = [
-        'java',
-        '-jar',
-        'PDFToHTML.jar',
-        pdf_path,
-        '-fm=EMBED_BASE64',  # Example font handler mode (adjust as needed)
-        '-im=EMBED_BASE64'   # Example image handler mode (adjust as needed)
-    ]
+    # Output HTML file path
+    output_html_path = os.path.join('/tmp', 'output.html')
+
+    # Assuming the PDFToHTML.jar file is in the same directory as this Python script
+    jar_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'PDFToHTML.jar')
+
+    # Building the command to run
+    command = ['java', '-jar', jar_path, temp_pdf_path, output_html_path]
 
     try:
-        # Run the command and capture the output
-        output = subprocess.check_output(command, stderr=subprocess.STDOUT, text=True)
-        
-        # You can parse the output or further process it as needed
-        
-        # Return the HTML content and the temporary PDF file path
-        return output
+        # Run the command
+        subprocess.run(command, check=True)
+
+        return output_html_path
     except subprocess.CalledProcessError as e:
-        # Handle errors, you can print the error message or raise an exception
-        print(f"Error: {e}")
-        return None, pdf_path
-    finally:
-        # Cleanup: Remove the temporary PDF file after processing
-        os.remove(pdf_path)
+        return None
+    except Exception as e:
+        return None
