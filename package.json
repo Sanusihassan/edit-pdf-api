@@ -5,18 +5,21 @@
   "scripts": {
     "start": "node app.js",
     "build": "tsc",
-    "dev": "ts-node app.ts"
+    "dev": "NODE_ENV=development ts-node app.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.21.1",
     "multer": "^1.4.5-lts.1",
+    "pdfjs-dist": "^4.7.76",
     "uuid": "^11.0.2"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.8.6",
