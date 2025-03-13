@@ -6,11 +6,11 @@ import cors from "cors";
 import { setupPDFToHTMLRoute } from './routes/pdf-to-html';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 2025;
 
 
-if(process.env.NODE_ENV === "development") {
-    app.use(cors())
+if (process.env.NODE_ENV === "development") {
+  app.use(cors())
 }
 
 setupPDFToHTMLRoute(app);
