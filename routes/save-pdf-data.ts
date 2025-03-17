@@ -37,26 +37,43 @@ export function setupSavePDFDataRoute(app: Express) {
             res.status(500).json({ error: 'Error saving page data' });
         }
     });
-
     app.post('/finalize-pdf', async (req: Request, res: Response) => {
         try {
+            // Extract userId, styles, and metaData from request body
             const { userId, styles, metaData } = req.body;
 
-            // Validate required fields
+            // Validate required fields: userId and styles
             if (!userId || !styles) {
                 res.status(400).json({ error: 'Missing userId or styles' });
                 return;
             }
 
+            // Validate metaData and folderName (required for directory structure)
+            if (!metaData || !metaData.folderName) {
+                res.status(400).json({ error: 'Missing metaData or folderName' });
+                return;
+            }
+
+            const folderName = metaData.folderName;
+
+            // Validate folderName: must be a non-empty string, max 255 chars, alphanumeric with _ or -
+            if (typeof folderName !== 'string' ||
+                folderName.length === 0 ||
+                folderName.length > 255 ||
+                !/^[a-zA-Z0-9_-]+$/.test(folderName)) {
+                res.status(400).json({ error: 'Invalid folderName' });
+                return;
+            }
+
             // Define directories
             const tempDir = path.join('/home/pdf/temp', userId);
-            const finalDir = path.join('/home/pdf', userId);
+            const finalDir = path.join('/home/pdf', userId, folderName);
 
-            // Ensure the final directory exists
+            // Ensure the final directory exists (create it if it doesn’t)
             await fs.mkdir(finalDir, { recursive: true });
 
             // Read only .json files from the temporary directory
-            const files = (await fs.readdir(tempDir)).filter((file: string) => file.endsWith('.json'));
+            const files = (await fs.readdir(tempDir)).filter(file => file.endsWith('.json'));
 
             // Combine all page data into one object
             const elementsByPageId: Record<string, PDFElement[]> = {};
@@ -67,7 +84,7 @@ export function setupSavePDFDataRoute(app: Express) {
                 elementsByPageId[pageId] = JSON.parse(data);
             }
 
-            // Save document JSON data, overwriting any existing file
+            // Save document.json, overwriting any existing file
             const documentPath = path.join(finalDir, 'document.json');
             await fs.writeFile(documentPath, JSON.stringify(elementsByPageId));
 
@@ -75,11 +92,9 @@ export function setupSavePDFDataRoute(app: Express) {
             const stylesPath = path.join(finalDir, 'styles.html');
             await fs.writeFile(stylesPath, styles);
 
-            // Save metadata JSON if provided, overwriting any existing file
-            if (metaData) {
-                const metadataPath = path.join(finalDir, 'metadata.json');
-                await fs.writeFile(metadataPath, JSON.stringify(metaData, null, 2));
-            }
+            // Save metadata.json (since metaData is required), overwriting any existing file
+            const metadataPath = path.join(finalDir, 'metadata.json');
+            await fs.writeFile(metadataPath, JSON.stringify(metaData, null, 2));
 
             // Clean up the temporary directory
             await fs.rm(tempDir, { recursive: true, force: true });
@@ -87,9 +102,6 @@ export function setupSavePDFDataRoute(app: Express) {
             // Send success response
             res.status(200).json({
                 message: 'PDF data finalized successfully',
-                documentId: 'default', // Fixed value since files are overwritten
-                directory: finalDir,
-                metadataSaved: !!metaData // Indicates if metadata was saved
             });
         } catch (error) {
             console.error('Error finalizing PDF data:', error);
