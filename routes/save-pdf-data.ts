@@ -1,10 +1,3 @@
-/**
- the thumbnails are not stored in the server:
-root@vmi1914414:/home# cd pdf/cb7ee29b-0b66-49c4-99a1-88e8614ddd69/Sanusi-Resume/
-root@vmi1914414:/home/pdf/cb7ee29b-0b66-49c4-99a1-88e8614ddd69/Sanusi-Resume# ls
-document.json  metadata.json  styles.html
-root@vmi1914414:/home/pdf/cb7ee29b-0b66-49c4-99a1-88e8614ddd69/Sanusi-Resume# 
- */
 import { Request, Response, Express } from "express";
 import fs from "fs-extra";
 import path from "path";
@@ -25,8 +18,8 @@ export interface PDFElement {
 export function setupSavePDFDataRoute(app: Express) {
   // Endpoint to save individual page data and thumbnail
   app.post("/save-pdf-page", async (req: Request, res: Response) => {
-      try {
-        const { userId, pageId, elements, thumbnail } = req.body;
+    try {
+      const { userId, pageId, elements, thumbnail } = req.body;
       if (!userId || !pageId || !elements || thumbnail === undefined) {
         res.status(400).json({ error: "Missing required fields" });
         return;
