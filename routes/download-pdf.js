@@ -83,7 +83,11 @@ function setupDownloadPDFRoute(app) {
             }
             // Set options and generate PDF
             yield pdfGenerator.setOptions(pdfOptions);
-            const pdfBuffer = yield pdfGenerator.create(pagesContainer);
+            const pdfBuffer = yield pdfGenerator.create(`<style>
+.current-el-options {display: none!important}
+</style>
+${pagesContainer}
+`);
             // Validate PDF output
             if (!pdfBuffer || pdfBuffer.length < 200) {
                 throw new Error("Generated PDF is empty or too small");

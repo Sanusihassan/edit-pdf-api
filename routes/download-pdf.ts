@@ -106,7 +106,13 @@ export function setupDownloadPDFRoute(app: Express) {
 
             // Set options and generate PDF
             await pdfGenerator.setOptions(pdfOptions);
-            const pdfBuffer = await pdfGenerator.create(pagesContainer);
+            const pdfBuffer = await pdfGenerator.create(
+`<style>
+.current-el-options {display: none!important}
+</style>
+${pagesContainer}
+`
+            );
 
             // Validate PDF output
             if (!pdfBuffer || pdfBuffer.length < 200) {
