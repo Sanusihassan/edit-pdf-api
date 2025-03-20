@@ -16,7 +16,7 @@ exports.setupSavePDFDataRoute = setupSavePDFDataRoute;
 const fs_extra_1 = __importDefault(require("fs-extra"));
 const path_1 = __importDefault(require("path"));
 function setupSavePDFDataRoute(app) {
-    // Endpoint to save individual page data and thumbnail
+    // Endpoint to save individual page data and thumbnail (unchanged)
     app.post("/save-pdf-page", (req, res) => __awaiter(this, void 0, void 0, function* () {
         try {
             const { userId, pageId, elements, thumbnail } = req.body;
@@ -26,10 +26,8 @@ function setupSavePDFDataRoute(app) {
             }
             const tempDir = path_1.default.join("/home/pdf/temp", userId);
             yield fs_extra_1.default.mkdir(tempDir, { recursive: true });
-            // Save elements to pageId.json
             const elementsFilePath = path_1.default.join(tempDir, `${pageId}.json`);
             yield fs_extra_1.default.writeFile(elementsFilePath, JSON.stringify(elements));
-            // Save thumbnail to pageId-thumbnail.json
             const thumbnailFilePath = path_1.default.join(tempDir, `${pageId}-thumbnail.json`);
             yield fs_extra_1.default.writeFile(thumbnailFilePath, JSON.stringify({ thumbnail }));
             res.status(200).json({ message: "Page data saved" });
@@ -39,11 +37,11 @@ function setupSavePDFDataRoute(app) {
             res.status(500).json({ error: "Error saving page data" });
         }
     }));
-    // Endpoint to finalize PDF and save document.json, thumbnails.json, etc.
+    // Endpoint to finalize PDF and save all files
     app.post("/finalize-pdf", (req, res) => __awaiter(this, void 0, void 0, function* () {
         try {
-            const { userId, styles, metaData } = req.body;
-            if (!userId || !styles || !metaData || !metaData.folderName) {
+            const { userId, styles, metaData, pageStyles } = req.body;
+            if (!userId || !styles || !metaData || !metaData.folderName || !pageStyles) {
                 res.status(400).json({ error: "Missing required fields" });
                 return;
             }
@@ -58,18 +56,15 @@ function setupSavePDFDataRoute(app) {
             const tempDir = path_1.default.join("/home/pdf/temp", userId);
             const finalDir = path_1.default.join("/home/pdf", userId, folderName);
             yield fs_extra_1.default.mkdir(finalDir, { recursive: true });
-            // Get all element files (excluding thumbnail files)
+            // Process page files from temp directory
             const elementFiles = (yield fs_extra_1.default.readdir(tempDir)).filter((file) => file.endsWith(".json") && !file.includes("-thumbnail"));
             const documentData = {};
             const thumbnailsData = {};
-            // Process each page
             for (const file of elementFiles) {
                 const pageId = path_1.default.basename(file, ".json");
-                // Load elements
                 const elementsFilePath = path_1.default.join(tempDir, file);
                 const elementsData = yield fs_extra_1.default.readFile(elementsFilePath, "utf-8");
                 documentData[pageId] = JSON.parse(elementsData);
-                // Load thumbnail
                 const thumbnailFilePath = path_1.default.join(tempDir, `${pageId}-thumbnail.json`);
                 if (yield fs_extra_1.default.pathExists(thumbnailFilePath)) {
                     const thumbnailData = yield fs_extra_1.default.readFile(thumbnailFilePath, "utf-8");
@@ -77,22 +72,25 @@ function setupSavePDFDataRoute(app) {
                     thumbnailsData[pageId] = thumbnail;
                 }
                 else {
-                    thumbnailsData[pageId] = null; // Fallback if thumbnail file is missing
+                    thumbnailsData[pageId] = null;
                 }
             }
-            // Save document.json (elements only)
+            // Save document.json
             const documentPath = path_1.default.join(finalDir, "document.json");
             yield fs_extra_1.default.writeFile(documentPath, JSON.stringify(documentData));
             // Save thumbnails.json
             const thumbnailsPath = path_1.default.join(finalDir, "thumbnails.json");
             yield fs_extra_1.default.writeFile(thumbnailsPath, JSON.stringify(thumbnailsData));
-            // Save styles.html
+            // Save styles.html (as is, like before)
             const stylesPath = path_1.default.join(finalDir, "styles.html");
             yield fs_extra_1.default.writeFile(stylesPath, styles);
+            // Save pageStyles.json (new, as JSON)
+            const pageStylesPath = path_1.default.join(finalDir, "pageStyles.json");
+            yield fs_extra_1.default.writeFile(pageStylesPath, JSON.stringify(pageStyles));
             // Save metadata.json
             const metadataPath = path_1.default.join(finalDir, "metadata.json");
             yield fs_extra_1.default.writeFile(metadataPath, JSON.stringify(metaData, null, 2));
-            // Clean up temporary directory
+            // Clean up temp directory
             yield fs_extra_1.default.rm(tempDir, { recursive: true, force: true });
             res.status(200).json({ message: "PDF data finalized successfully" });
         }

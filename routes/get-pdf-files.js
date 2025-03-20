@@ -15,27 +15,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.setupGetPDFFilesRoute = setupGetPDFFilesRoute;
 const fs_extra_1 = __importDefault(require("fs-extra"));
 const path_1 = __importDefault(require("path"));
-// Assuming this is part of the same file or module as your existing code
 function setupGetPDFFilesRoute(app) {
     app.get("/get-pdf-files/:userId/:folderName", (req, res) => __awaiter(this, void 0, void 0, function* () {
         try {
-            // Extract parameters from the request
             const { userId, folderName } = req.params;
-            // Validate inputs
             if (!userId || !folderName) {
                 res.status(400).json({ error: "Missing userId or folderName" });
                 return;
             }
-            // Construct the directory path
             const fileDir = path_1.default.join("/home/pdf", userId, folderName);
-            // Check if the directory exists
             if (!(yield fs_extra_1.default.pathExists(fileDir))) {
                 res.status(404).json({ error: "Files not found" });
                 return;
             }
-            // Define file paths
             const documentPath = path_1.default.join(fileDir, "document.json");
             const stylesPath = path_1.default.join(fileDir, "styles.html");
+            const pageStylesPath = path_1.default.join(fileDir, "pageStyles.json");
             const thumbnailsPath = path_1.default.join(fileDir, "thumbnails.json");
             // Read document.json
             let documentContent = null;
@@ -43,10 +38,16 @@ function setupGetPDFFilesRoute(app) {
                 const documentData = yield fs_extra_1.default.readFile(documentPath, "utf-8");
                 documentContent = JSON.parse(documentData);
             }
-            // Read styles.html
+            // Read styles.html (as text)
             let stylesContent = null;
             if (yield fs_extra_1.default.pathExists(stylesPath)) {
                 stylesContent = yield fs_extra_1.default.readFile(stylesPath, "utf-8");
+            }
+            // Read pageStyles.json (as JSON)
+            let pageStylesContent = null;
+            if (yield fs_extra_1.default.pathExists(pageStylesPath)) {
+                const pageStylesData = yield fs_extra_1.default.readFile(pageStylesPath, "utf-8");
+                pageStylesContent = JSON.parse(pageStylesData);
             }
             // Read thumbnails.json
             let thumbnailsContent = null;
@@ -54,10 +55,11 @@ function setupGetPDFFilesRoute(app) {
                 const thumbnailsData = yield fs_extra_1.default.readFile(thumbnailsPath, "utf-8");
                 thumbnailsContent = JSON.parse(thumbnailsData);
             }
-            // Send the response with all file contents
+            // Send response
             res.status(200).json({
                 document: documentContent,
-                styles: stylesContent,
+                styles: stylesContent, // HTML string
+                pageStyles: pageStylesContent, // JSON object
                 thumbnails: thumbnailsContent
             });
         }
