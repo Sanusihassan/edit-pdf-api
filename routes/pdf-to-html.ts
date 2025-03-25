@@ -1,15 +1,13 @@
 import { Request, Response, Express } from 'express';
-import multer from 'multer';
-import fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { PDFToHTML } from '../tools/pdf_to_html';
-import { v4 } from 'uuid';
+import { handlePDFUpload, getFile, deleteFile } from "../utils/pdf-storage";
 
 // Promisify exec for async operations
 const execPromise = promisify(exec);
 
-// Define the structure for PDF data (for type safety, though we won’t store it globally)
+// Define the structure for PDF data (for type safety)
 export interface PDFInfo {
   title?: string;
   producer?: string;
@@ -25,47 +23,8 @@ export interface PDFInfo {
   fileSize?: string;
   optimized?: string;
   pdfVersion?: string;
+  fileId?: string; // Added fileId for referencing
 }
-
-// Generate a unique ID
-export const uid = v4();
-
-// Configure multer storage
-const storage = multer.diskStorage({
-  destination: '/tmp/',
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + '.pdf');
-  }
-});
-
-// Configure multer upload
-const upload = multer({
-  storage: storage,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype !== 'application/pdf') {
-      return cb(new Error('Only PDF files are allowed'));
-    }
-    cb(null, true);
-  },
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
-});
-
-// Custom error handler for multer
-const handleMulterUpload = (req: Request, res: Response, next: Function) => {
-  const uploadMiddleware = upload.single('pdfFile');
-  uploadMiddleware(req, res, (err: any) => {
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ error: 'File size exceeds 100MB limit' });
-      }
-      return res.status(400).json({ error: `Upload error: ${err.message}` });
-    } else if (err) {
-      return res.status(400).json({ error: err.message });
-    }
-    next();
-  });
-};
 
 // Function to parse pdfinfo output into a structured object
 function parsePDFInfo(stdout: string): PDFInfo {
@@ -134,25 +93,33 @@ function parsePDFInfo(stdout: string): PDFInfo {
 
 // Route handler function
 export function setupPDFToHTMLRoute(app: Express) {
-  app.post('/get-pdf-data', handleMulterUpload, async (req: Request, res: Response): Promise<void> => {
+  app.post('/get-pdf-data', handlePDFUpload, async (req: Request & { fileId?: string }, res: Response): Promise<void> => {
     try {
-      if (!req.file) {
+      if (!req.fileId) {
         res.status(400).json({ error: 'No PDF file uploaded' });
         return;
       }
 
-      const pdfFilePath = req.file.path;
-      const userId = req.body.userId || uid; // Extract userId from form data
-      const isScanned = req.body.isScanned === 'true'; // Extract isScanned from form data
-      const selectedLanguages = JSON.parse(req.body.selectedLanguages);
+      const fileInfo = getFile(req.fileId);
+      if (!fileInfo) {
+        res.status(404).json({ error: 'File not found' });
+        return;
+      }
+
+      const pdfFilePath = fileInfo.path;
+      const isScanned = req.body.isScanned === 'true';
+      const selectedLanguages = JSON.parse(req.body.selectedLanguages || '[]');
 
       // Extract PDF info using pdfinfo from poppler-utils
       const { stdout } = await execPromise(`pdfinfo ${pdfFilePath}`);
       const pdfInfo = parsePDFInfo(stdout);
 
+      // Add fileId to the pdfInfo for reference
+      pdfInfo.fileId = req.fileId;
+
       // Check if page size was successfully extracted
       if (pdfInfo.pageSize.width === 0 || pdfInfo.pageSize.height === 0) {
-        fs.unlinkSync(pdfFilePath);
+        deleteFile(req.fileId);
         res.status(500).json({ error: 'Could not extract page size' });
         return;
       }
@@ -162,23 +129,23 @@ export function setupPDFToHTMLRoute(app: Express) {
 
       // Send both HTML content and pdfinfo as a JSON response
       res.json({
+        fileId: req.fileId,
         htmlContent: htmlContent,
         pdfInfo: pdfInfo
       });
 
-      // Clean up the uploaded file
-      fs.unlink(pdfFilePath, (err) => {
-        if (err) console.error('Error deleting temporary file:', err);
-      });
+      // Note: We're NOT deleting the file here anymore
+      // It will be available for other routes to use
     } catch (error) {
       console.error('Conversion error:', error);
       res.status(500).json({
         error: 'Error processing PDF',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
-      // Ensure file is deleted on error
-      if (req.file && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
+
+      // Delete the file on error
+      if (req.fileId) {
+        deleteFile(req.fileId);
       }
     }
   });

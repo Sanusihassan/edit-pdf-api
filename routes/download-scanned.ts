@@ -1,10 +1,11 @@
-// this is where i'm using the PuppeteerHTMLPDF in the setupDownloadPDFRoute, i want to use the same for the scanned version.
 import { Request, Response, Express } from "express";
-// @ts-ignore
+import { getFile, deleteFile } from "../utils/pdf-storage";
+import { convertToHTML, JAR_PATH } from "../tools/pdf_to_html";
+import { insertAnnotations } from "../tools/insertAnnotations";
 import PuppeteerHTMLPDF from "puppeteer-html-pdf";
 
-// Define the PDFInfo interface
-interface PDFInfo {
+
+export interface PDFInfo {
     title?: string;
     producer?: string;
     tagged?: string;
@@ -19,38 +20,61 @@ interface PDFInfo {
     fileSize?: string;
     optimized?: string;
     pdfVersion?: string;
+    fileId?: string;
 }
 
-// Define the DownloadOptionsState interface
 interface DownloadOptionsState {
-    layout?: "portrait" | "landscape";
-    paperSize?: string; // e.g., 'A4', 'Letter', 'custom'
-    scale?: number; // Zoom level, e.g., 1
-    margin?: "default" | "none" | "minimal" | "custom";
-    customMargins?: { top: number; right: number; bottom: number; left: number }; // In millimeters
-    duplex?: boolean; // Ignored for PDF generation
-    customWidth?: number; // In inches, used if paperSize is 'custom'
-    customHeight?: number; // In inches, used if paperSize is 'custom'
+    layout: 'portrait' | 'landscape';
+    paperSize: string;
+    scale: number;
+    margin: 'default' | 'none' | 'minimal' | 'custom';
+    customMargins: {
+        top: number;
+        right: number;
+        bottom: number;
+        left: number;
+    };
+    duplex: boolean;
+    customWidth?: number;
+    customHeight?: number;
 }
 
-export function setupDownloadPDFRoute(app: Express) {
+export function setupDownloadScannedPDFRoute(app: Express) {
     // @ts-ignore
-    app.post("/download-pdf", async (req: Request, res: Response) => {
+    app.post("/download-scanned", async (req: Request, res: Response) => {
         try {
-            // Validate input
-            const { pagesContainer, downloadOptions, pdfData } = req.body;
+            const { PDFInfo, elementsByPageId, downloadOptions, styles } = req.body;
 
-            if (!pagesContainer?.trim()) {
-                return res.status(400).json({ error: "Empty content provided" });
+            const { fileId } = PDFInfo;
+
+            if (!fileId) {
+                return res.status(400).json({ error: 'File ID is required' });
             }
+
+            const fileInfo = getFile(fileId);
+            console.log(fileInfo, fileId)
+            if (!fileInfo) {
+                return res.status(404).json({ error: 'File not found. It may have been deleted or expired.' });
+            }
+
+            // Access the PDF file
+            const filePath = fileInfo.path;
+            const outputPath = filePath.replace(/\.pdf$/, ".html");
+
+            // Convert PDF to HTML
+            const htmlContent = await convertToHTML(filePath, outputPath, JAR_PATH);
+
+            // Insert annotations
+            const annotatedHtml = insertAnnotations(htmlContent, elementsByPageId);
 
             // Configure default options
             const defaultOptions: DownloadOptionsState = {
                 layout: "portrait",
-                paperSize: "A4",
+                paperSize: PDFInfo.pageSize.sizeType || "A4",
                 scale: 1,
                 margin: "default",
                 customMargins: { top: 10, right: 10, bottom: 10, left: 10 },
+                duplex: false
             };
 
             const finalOptions = { ...defaultOptions, ...downloadOptions };
@@ -108,9 +132,10 @@ export function setupDownloadPDFRoute(app: Express) {
             await pdfGenerator.setOptions(pdfOptions);
             const pdfBuffer = await pdfGenerator.create(
                 `<style>
-.current-el-options {display: none!important}
-</style>
-${pagesContainer}
+                .current-el-options {display: none!important}
+                </style>
+                ${styles}
+${annotatedHtml}
 `
             );
 
@@ -122,20 +147,20 @@ ${pagesContainer}
             // Send response
             res.set({
                 "Content-Type": "application/pdf",
-                "Content-Disposition": 'attachment; filename="document.pdf"',
+                "Content-Disposition": `attachment; filename="${PDFInfo.title || 'document'}.pdf"`,
                 "Content-Length": pdfBuffer.length.toString(),
             });
             res.send(pdfBuffer);
+            deleteFile(fileId);
 
             // Close the browser to free resources
             await pdfGenerator.closeBrowser();
         } catch (error) {
-            console.error("PDF Generation Error:", error);
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            console.error('Download error:', error);
             res.status(500).json({
-                error: "PDF generation failed",
-                details: errorMessage,
-                timestamp: new Date().toISOString(),
+                error: 'Error processing download request',
+                details: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString()
             });
         }
     });

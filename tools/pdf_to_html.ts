@@ -9,7 +9,7 @@ interface PDFAnalysisResult {
   confidence?: number;
 }
 
-const JAR_PATH = "/home/edit-pdf-api/tools/PDFToHTML.jar";
+export const JAR_PATH = "/home/edit-pdf-api/tools/PDFToHTML.jar";
 
 export async function PDFToHTML(pdfFilePath: string, isScanned: boolean, selectedLanguages: string[]): Promise<PDFAnalysisResult> {
   let pdfToConvert = pdfFilePath;
@@ -62,7 +62,7 @@ async function runOcrMyPdf(inputPath: string, outputPath: string, languages: str
   });
 }
 
-async function convertToHTML(
+export async function convertToHTML(
   pdfPath: string,
   outputPath: string,
   jarPath: string

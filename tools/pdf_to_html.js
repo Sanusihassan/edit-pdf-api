@@ -12,12 +12,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.JAR_PATH = void 0;
 exports.PDFToHTML = PDFToHTML;
+exports.convertToHTML = convertToHTML;
 const child_process_1 = require("child_process");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const uuid_1 = require("uuid");
-const JAR_PATH = "/home/edit-pdf-api/tools/PDFToHTML.jar";
+exports.JAR_PATH = "/home/edit-pdf-api/tools/PDFToHTML.jar";
 function PDFToHTML(pdfFilePath, isScanned, selectedLanguages) {
     return __awaiter(this, void 0, void 0, function* () {
         let pdfToConvert = pdfFilePath;
@@ -38,7 +40,7 @@ function PDFToHTML(pdfFilePath, isScanned, selectedLanguages) {
             }
             // Convert the PDF (original or OCR'd) to HTML
             const htmlOutputPath = path_1.default.join('/tmp', `html-${(0, uuid_1.v4)()}.html`);
-            const htmlContent = yield convertToHTML(pdfToConvert, htmlOutputPath, JAR_PATH);
+            const htmlContent = yield convertToHTML(pdfToConvert, htmlOutputPath, exports.JAR_PATH);
             return {
                 scanned: false,
                 content: htmlContent,
