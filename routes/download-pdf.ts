@@ -2,6 +2,7 @@
 import { Request, Response, Express } from "express";
 // @ts-ignore
 import PuppeteerHTMLPDF from "puppeteer-html-pdf";
+import { deleteFile } from "../utils/pdf-storage";
 
 // Define the PDFInfo interface
 interface PDFInfo {
@@ -126,6 +127,7 @@ ${pagesContainer}
                 "Content-Length": pdfBuffer.length.toString(),
             });
             res.send(pdfBuffer);
+            // deleteFile(pdfData.fileId);
 
             // Close the browser to free resources
             await pdfGenerator.closeBrowser();

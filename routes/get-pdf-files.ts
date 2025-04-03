@@ -61,4 +61,48 @@ export function setupGetPDFFilesRoute(app: Express) {
             res.status(500).json({ error: "Error retrieving PDF files" });
         }
     });
+    app.get("/files", async (req: Request, res: Response) => {
+        try {
+            // Extract userId from query parameters
+            const { userId } = req.query;
+            if (!userId || typeof userId !== "string") {
+                res.status(400).json({ error: "Missing or invalid userId" });
+                return;
+            }
+
+            // Construct the path to the user's directory
+            const userDir = path.join("/home/pdf", userId);
+
+            // Check if the user's directory exists
+            if (!await fs.pathExists(userDir)) {
+                res.status(404).json({ error: "User directory not found" });
+                return;
+            }
+
+            // Read all folders in the user's directory
+            const folders = await fs.readdir(userDir, { withFileTypes: true });
+            const metadataList = [];
+
+            // Iterate over each folder
+            for (const folder of folders) {
+                if (folder.isDirectory()) {
+                    const folderName = folder.name;
+                    const metadataPath = path.join(userDir, folderName, "metadata.json");
+
+                    // Check if metadata.json exists in the folder
+                    if (await fs.pathExists(metadataPath)) {
+                        const metadataData = await fs.readFile(metadataPath, "utf-8");
+                        const metadata = JSON.parse(metadataData);
+                        metadataList.push({ folderName, metadata });
+                    }
+                }
+            }
+
+            // Send the collected metadata as a JSON response
+            res.status(200).json(metadataList);
+        } catch (error) {
+            console.error("Error retrieving files:", error);
+            res.status(500).json({ error: "Error retrieving files" });
+        }
+    });
 }

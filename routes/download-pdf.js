@@ -99,6 +99,7 @@ ${pagesContainer}
                 "Content-Length": pdfBuffer.length.toString(),
             });
             res.send(pdfBuffer);
+            // deleteFile(pdfData.fileId);
             // Close the browser to free resources
             yield pdfGenerator.closeBrowser();
         }

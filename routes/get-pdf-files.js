@@ -68,4 +68,43 @@ function setupGetPDFFilesRoute(app) {
             res.status(500).json({ error: "Error retrieving PDF files" });
         }
     }));
+    app.get("/files", (req, res) => __awaiter(this, void 0, void 0, function* () {
+        try {
+            // Extract userId from query parameters
+            const { userId } = req.query;
+            if (!userId || typeof userId !== "string") {
+                res.status(400).json({ error: "Missing or invalid userId" });
+                return;
+            }
+            // Construct the path to the user's directory
+            const userDir = path_1.default.join("/home/pdf", userId);
+            // Check if the user's directory exists
+            if (!(yield fs_extra_1.default.pathExists(userDir))) {
+                res.status(404).json({ error: "User directory not found" });
+                return;
+            }
+            // Read all folders in the user's directory
+            const folders = yield fs_extra_1.default.readdir(userDir, { withFileTypes: true });
+            const metadataList = [];
+            // Iterate over each folder
+            for (const folder of folders) {
+                if (folder.isDirectory()) {
+                    const folderName = folder.name;
+                    const metadataPath = path_1.default.join(userDir, folderName, "metadata.json");
+                    // Check if metadata.json exists in the folder
+                    if (yield fs_extra_1.default.pathExists(metadataPath)) {
+                        const metadataData = yield fs_extra_1.default.readFile(metadataPath, "utf-8");
+                        const metadata = JSON.parse(metadataData);
+                        metadataList.push({ folderName, metadata });
+                    }
+                }
+            }
+            // Send the collected metadata as a JSON response
+            res.status(200).json(metadataList);
+        }
+        catch (error) {
+            console.error("Error retrieving files:", error);
+            res.status(500).json({ error: "Error retrieving files" });
+        }
+    }));
 }
