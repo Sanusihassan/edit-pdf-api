@@ -11,6 +11,7 @@ const download_pdf_1 = require("./routes/download-pdf");
 const get_pdf_files_1 = require("./routes/get-pdf-files");
 const download_scanned_1 = require("./routes/download-scanned");
 const delete_file_1 = require("./routes/delete-file");
+const get_templates_1 = require("./routes/get-templates");
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 2025;
 // if (process.env.NODE_ENV === "development") {
@@ -23,6 +24,7 @@ app.use(express_1.default.json({ limit: '100mb' }));
 (0, get_pdf_files_1.setupGetPDFFilesRoute)(app);
 (0, download_scanned_1.setupDownloadScannedPDFRoute)(app);
 (0, delete_file_1.setupDeletePDFFilesRoute)(app);
+(0, get_templates_1.setupGetTemplateRoute)(app);
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
