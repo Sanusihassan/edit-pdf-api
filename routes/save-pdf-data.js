@@ -59,7 +59,7 @@ function setupSavePDFDataRoute(app) {
             // Process page files from temp directory
             const elementFiles = (yield fs_extra_1.default.readdir(tempDir)).filter((file) => file.endsWith(".json") && !file.includes("-thumbnail"));
             const documentData = {};
-            const thumbnailsData = {};
+            const thumbnailsData = []; // Changed to array of Thumbnail objects
             for (const file of elementFiles) {
                 const pageId = path_1.default.basename(file, ".json");
                 const elementsFilePath = path_1.default.join(tempDir, file);
@@ -69,28 +69,28 @@ function setupSavePDFDataRoute(app) {
                 if (yield fs_extra_1.default.pathExists(thumbnailFilePath)) {
                     const thumbnailData = yield fs_extra_1.default.readFile(thumbnailFilePath, "utf-8");
                     const { thumbnail } = JSON.parse(thumbnailData);
-                    thumbnailsData[pageId] = thumbnail;
+                    thumbnailsData.push({ id: pageId, url: thumbnail });
                 }
                 else {
-                    thumbnailsData[pageId] = null;
+                    thumbnailsData.push({ id: pageId, url: null });
                 }
             }
             // Save document.json
             const documentPath = path_1.default.join(finalDir, "document.json");
             yield fs_extra_1.default.writeFile(documentPath, JSON.stringify(documentData));
-            // Save thumbnails.json
+            // Save thumbnails.json as an array of Thumbnail objects
             const thumbnailsPath = path_1.default.join(finalDir, "thumbnails.json");
             yield fs_extra_1.default.writeFile(thumbnailsPath, JSON.stringify(thumbnailsData));
-            // Save styles.html (as is, like before)
+            // Save styles.html (unchanged)
             const stylesPath = path_1.default.join(finalDir, "styles.html");
             yield fs_extra_1.default.writeFile(stylesPath, styles);
-            // Save pageStyles.json (new, as JSON)
+            // Save pageStyles.json (unchanged)
             const pageStylesPath = path_1.default.join(finalDir, "pageStyles.json");
             yield fs_extra_1.default.writeFile(pageStylesPath, JSON.stringify(pageStyles));
-            // Save metadata.json
+            // Save metadata.json (unchanged)
             const metadataPath = path_1.default.join(finalDir, "metadata.json");
             yield fs_extra_1.default.writeFile(metadataPath, JSON.stringify(metaData, null, 2));
-            // Clean up temp directory
+            // Clean up temp directory (unchanged)
             yield fs_extra_1.default.rm(tempDir, { recursive: true, force: true });
             res.status(200).json({ message: "PDF data finalized successfully" });
         }

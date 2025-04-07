@@ -2,7 +2,7 @@ import { Request, Response, Express } from "express";
 import fs from "fs-extra";
 import path from "path";
 
-// Define PDFElement interface (assuming this is your structure)
+// Define PDFElement interface (unchanged from your original code)
 export interface PDFElement {
   id: string;
   type: string;
@@ -12,6 +12,12 @@ export interface PDFElement {
   pageId: string;
   position?: { x: number; y: number };
   size?: { width: number; height: number };
+}
+
+// Define Thumbnail interface as per your specification
+interface Thumbnail {
+  url: string | null;
+  id: string;
 }
 
 export function setupSavePDFDataRoute(app: Express) {
@@ -70,7 +76,7 @@ export function setupSavePDFDataRoute(app: Express) {
       );
 
       const documentData: Record<string, PDFElement[]> = {};
-      const thumbnailsData: Record<string, string | null> = {};
+      const thumbnailsData: Thumbnail[] = []; // Changed to array of Thumbnail objects
 
       for (const file of elementFiles) {
         const pageId = path.basename(file, ".json");
@@ -82,9 +88,9 @@ export function setupSavePDFDataRoute(app: Express) {
         if (await fs.pathExists(thumbnailFilePath)) {
           const thumbnailData = await fs.readFile(thumbnailFilePath, "utf-8");
           const { thumbnail } = JSON.parse(thumbnailData);
-          thumbnailsData[pageId] = thumbnail;
+          thumbnailsData.push({ id: pageId, url: thumbnail });
         } else {
-          thumbnailsData[pageId] = null;
+          thumbnailsData.push({ id: pageId, url: null });
         }
       }
 
@@ -92,23 +98,23 @@ export function setupSavePDFDataRoute(app: Express) {
       const documentPath = path.join(finalDir, "document.json");
       await fs.writeFile(documentPath, JSON.stringify(documentData));
 
-      // Save thumbnails.json
+      // Save thumbnails.json as an array of Thumbnail objects
       const thumbnailsPath = path.join(finalDir, "thumbnails.json");
       await fs.writeFile(thumbnailsPath, JSON.stringify(thumbnailsData));
 
-      // Save styles.html (as is, like before)
+      // Save styles.html (unchanged)
       const stylesPath = path.join(finalDir, "styles.html");
       await fs.writeFile(stylesPath, styles);
 
-      // Save pageStyles.json (new, as JSON)
+      // Save pageStyles.json (unchanged)
       const pageStylesPath = path.join(finalDir, "pageStyles.json");
       await fs.writeFile(pageStylesPath, JSON.stringify(pageStyles));
 
-      // Save metadata.json
+      // Save metadata.json (unchanged)
       const metadataPath = path.join(finalDir, "metadata.json");
       await fs.writeFile(metadataPath, JSON.stringify(metaData, null, 2));
 
-      // Clean up temp directory
+      // Clean up temp directory (unchanged)
       await fs.rm(tempDir, { recursive: true, force: true });
 
       res.status(200).json({ message: "PDF data finalized successfully" });
